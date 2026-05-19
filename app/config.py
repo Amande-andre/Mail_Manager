@@ -15,3 +15,9 @@ AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
 AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.2"))
 
 MAX_EMAILS_DEFAULT = int(os.getenv("MAX_EMAILS_DEFAULT", "20"))
+
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:8000").split(",")
+    if origin.strip()
+]

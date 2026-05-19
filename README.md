@@ -40,6 +40,7 @@ Définissez les variables d'environnement suivantes :
 | `AI_BASE_URL` | Base URL (optionnelle) | `https://openrouter.ai/api/v1` |
 | `AI_MODEL` | Modèle IA | `gpt-4o-mini` |
 | `AI_TEMPERATURE` | Température | `0.2` |
+| `ALLOWED_ORIGINS` | Origines CORS autorisées | `http://localhost:8000` |
 
 ## Lancer l'application
 
@@ -52,5 +53,5 @@ Ouvrez ensuite `http://localhost:8000`.
 ## Notes
 
 - Les fichiers `credentials.json` et `token.json` ne sont pas versionnés.
-- La branche `master` contenait un environnement virtuel local ; il est maintenant ignoré via `.gitignore`.
+- L'ancienne branche `master` contenait un environnement virtuel local ; il est maintenant ignoré via `.gitignore`.
 - Aucune suite de tests n'est fournie pour le moment.
