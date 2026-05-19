@@ -89,7 +89,12 @@ async function loadConfig() {
 async function loadEmails() {
   clearError();
   const query = document.getElementById('query').value.trim();
-  const maxResults = document.getElementById('maxResults').value || '20';
+  const maxResultsInput = document.getElementById('maxResults').value;
+  let maxResults = parseInt(maxResultsInput, 10);
+  if (Number.isNaN(maxResults)) {
+    maxResults = 20;
+  }
+  maxResults = Math.min(Math.max(maxResults, 1), 100);
 
   try {
     const response = await fetch(

@@ -63,14 +63,14 @@ def filter_and_sort_emails(
 
     ids = [email.get("id") for email in emails if email.get("id")]
 
-    def normalize_ids(value, fallback):
+    def sanitize_id_list(value, fallback):
         if isinstance(value, list):
             cleaned = [item for item in value if isinstance(item, str) and item]
             return cleaned or fallback
         return fallback
 
-    keep_ids = normalize_ids(data.get("keep_ids"), ids)
-    ordered_ids = normalize_ids(data.get("ordered_ids"), keep_ids)
+    keep_ids = sanitize_id_list(data.get("keep_ids"), ids)
+    ordered_ids = sanitize_id_list(data.get("ordered_ids"), keep_ids)
 
     return {
         "keep_ids": keep_ids,
