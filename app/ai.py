@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import List, Dict, Any
 
 from openai import OpenAI
@@ -14,6 +15,8 @@ SYSTEM_PROMPT = (
     "ordered_ids (liste d'identifiants dans l'ordre recommandé), "
     "summary (explication courte)."
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _get_client() -> OpenAI:
@@ -43,7 +46,8 @@ def filter_and_sort_emails(
             temperature=config.AI_TEMPERATURE,
             response_format={"type": "json_object"},
         )
-    except Exception:
+    except Exception as exc:
+        LOGGER.warning("Fallback sans response_format: %s", exc)
         response = client.chat.completions.create(
             model=config.AI_MODEL,
             messages=messages,
@@ -54,15 +58,19 @@ def filter_and_sort_emails(
     try:
         data = json.loads(content)
     except json.JSONDecodeError:
+        LOGGER.warning("Réponse IA non JSON: %s", content)
         data = {}
 
     ids = [email.get("id") for email in emails if email.get("id")]
-    keep_ids = data.get("keep_ids") if isinstance(data.get("keep_ids"), list) else ids
-    ordered_ids = (
-        data.get("ordered_ids")
-        if isinstance(data.get("ordered_ids"), list)
-        else keep_ids
-    )
+
+    def normalize_ids(value, fallback):
+        if isinstance(value, list):
+            cleaned = [item for item in value if isinstance(item, str) and item]
+            return cleaned or fallback
+        return fallback
+
+    keep_ids = normalize_ids(data.get("keep_ids"), ids)
+    ordered_ids = normalize_ids(data.get("ordered_ids"), keep_ids)
 
     return {
         "keep_ids": keep_ids,
