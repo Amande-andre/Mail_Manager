@@ -90,11 +90,11 @@ async function loadEmails() {
   clearError();
   const query = document.getElementById('query').value.trim();
   const maxResultsInput = document.getElementById('maxResults').value;
-  let maxResults = parseInt(maxResultsInput, 10);
-  if (Number.isNaN(maxResults)) {
+  let maxResults = Number(maxResultsInput);
+  if (!Number.isInteger(maxResults) || maxResults <= 0) {
     maxResults = 20;
   }
-  maxResults = Math.min(Math.max(maxResults, 1), 100);
+  maxResults = Math.min(maxResults, 100);
 
   try {
     const response = await fetch(

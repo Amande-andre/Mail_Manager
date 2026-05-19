@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Dict, Any
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -16,11 +16,11 @@ class EmailItem(BaseModel):
 
 class FilterSortRequest(BaseModel):
     instructions: str = Field(min_length=1)
-    emails: List[EmailItem]
+    emails: list[EmailItem]
 
 
 class FilterSortResponse(BaseModel):
-    keep_ids: List[str]
-    ordered_ids: List[str]
+    keep_ids: list[str]
+    ordered_ids: list[str]
     summary: str = ""
-    raw: Dict[str, Any] = Field(default_factory=dict)
+    raw: dict[str, Any] = Field(default_factory=dict)
