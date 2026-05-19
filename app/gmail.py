@@ -40,7 +40,7 @@ def get_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def _get_header(headers, name: str) -> str:
+def _extract_header_value(headers, name: str) -> str:
     for header in headers:
         if header.get("name", "").lower() == name.lower():
             return header.get("value", "")
@@ -75,9 +75,9 @@ def list_emails(query: str | None, max_results: int) -> List[dict]:
             {
                 "id": detail.get("id"),
                 "threadId": detail.get("threadId"),
-                "sender": _get_header(headers, "From"),
-                "subject": _get_header(headers, "Subject"),
-                "date": _get_header(headers, "Date"),
+                "sender": _extract_header_value(headers, "From"),
+                "subject": _extract_header_value(headers, "Subject"),
+                "date": _extract_header_value(headers, "Date"),
                 "snippet": detail.get("snippet", ""),
             }
         )
