@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from google.auth.exceptions import RefreshError
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
@@ -15,12 +16,18 @@ def _load_credentials() -> Optional[Credentials]:
     if not config.GMAIL_TOKEN_PATH.exists():
         return None
 
-    creds = Credentials.from_authorized_user_file(
-        str(config.GMAIL_TOKEN_PATH), SCOPES
-    )
+    try:
+        creds = Credentials.from_authorized_user_file(
+            str(config.GMAIL_TOKEN_PATH), SCOPES
+        )
+    except (ValueError, RefreshError):
+        return None
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        config.GMAIL_TOKEN_PATH.write_text(creds.to_json())
+        try:
+            creds.refresh(Request())
+            config.GMAIL_TOKEN_PATH.write_text(creds.to_json())
+        except RefreshError:
+            return None
     return creds
 
 

@@ -63,7 +63,7 @@ def filter_and_sort_emails(
 
     ids = [email.get("id") for email in emails if email.get("id")]
 
-    def sanitize_id_list(value, fallback):
+    def sanitize_id_list(value: Any, fallback: List[str]) -> List[str]:
         if isinstance(value, list):
             cleaned = [item for item in value if isinstance(item, str) and item]
             return cleaned or fallback
