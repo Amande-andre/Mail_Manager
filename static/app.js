@@ -98,9 +98,7 @@ async function loadEmails() {
 
   try {
     const response = await fetch(
-      `/api/emails?query=${encodeURIComponent(query)}&max_results=${encodeURIComponent(
-        maxResults
-      )}`
+      `/api/emails?query=${encodeURIComponent(query)}&max_results=${maxResults}`
     );
     if (!response.ok) {
       const error = await response.json();

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional
-
 from google.auth.exceptions import RefreshError
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -12,7 +10,7 @@ from app import config
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 
-def _load_credentials() -> Optional[Credentials]:
+def _load_credentials() -> Credentials | None:
     if not config.GMAIL_TOKEN_PATH.exists():
         return None
 
@@ -54,7 +52,7 @@ def _extract_header_value(headers, name: str) -> str:
     return ""
 
 
-def list_emails(query: str | None, max_results: int) -> List[dict]:
+def list_emails(query: str | None, max_results: int) -> list[dict]:
     service = get_service()
     response = (
         service.users()
@@ -63,7 +61,7 @@ def list_emails(query: str | None, max_results: int) -> List[dict]:
         .execute()
     )
     messages = response.get("messages", [])
-    emails: List[dict] = []
+    emails: list[dict] = []
 
     for message in messages:
         detail = (

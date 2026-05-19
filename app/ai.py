@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import List, Dict, Any
+from typing import Any
 
 from openai import OpenAI
 
@@ -30,8 +30,8 @@ def _get_client() -> OpenAI:
 
 
 def filter_and_sort_emails(
-    emails: List[Dict[str, Any]], instructions: str
-) -> Dict[str, Any]:
+    emails: list[dict[str, Any]], instructions: str
+) -> dict[str, Any]:
     client = _get_client()
     payload = {"instructions": instructions, "emails": emails}
     messages = [
@@ -63,7 +63,7 @@ def filter_and_sort_emails(
 
     ids = [email.get("id") for email in emails if email.get("id")]
 
-    def sanitize_id_list(value: Any, fallback: List[str]) -> List[str]:
+    def sanitize_id_list(value: Any, fallback: list[str]) -> list[str]:
         if isinstance(value, list):
             cleaned = [item for item in value if isinstance(item, str) and item]
             return cleaned or fallback
