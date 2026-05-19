@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestionnaire de mails</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>Gestionnaire de mails</h1>
+        <p>Configurez, filtrez et triez vos emails avec un agent IA.</p>
+      </header>
+
+      <section class="card">
+        <h2>Configuration</h2>
+        <div id="configStatus" class="status">Chargement...</div>
+      </section>
+
+      <section class="card">
+        <h2>Recherche Gmail</h2>
+        <label>
+          Requête Gmail (optionnel)
+          <input id="query" type="text" placeholder="from:newsletter" />
+        </label>
+        <label>
+          Nombre maximum d'emails
+          <input id="maxResults" type="number" min="1" max="100" value="20" />
+        </label>
+        <button id="loadEmails">Charger les emails</button>
+      </section>
+
+      <section class="card">
+        <h2>Instructions IA</h2>
+        <textarea
+          id="instructions"
+          rows="4"
+          placeholder="Ex: Garde uniquement les emails urgents et trie par priorité."
+        ></textarea>
+        <button id="runAi">Analyser avec l'IA</button>
+      </section>
+
+      <section class="card">
+        <h2>Emails chargés</h2>
+        <div id="emails" class="list">Aucun email chargé.</div>
+      </section>
+
+      <section class="card">
+        <h2>Résultat IA</h2>
+        <p id="aiSummary">Aucune analyse pour le moment.</p>
+        <div class="grid">
+          <div>
+            <h3>Ordre recommandé</h3>
+            <ol id="aiOrder"></ol>
+          </div>
+          <div>
+            <h3>Emails à garder</h3>
+            <ul id="aiKeep"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="card error" id="errorBox" hidden></section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
