@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -10,6 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from app import ai, config, gmail, models
 
 app = FastAPI(title="Mail Manager")
+
+LOGGER = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,7 +50,11 @@ async def get_emails(query: str | None = None, max_results: int | None = None):
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="Erreur Gmail inattendue") from exc
+        LOGGER.exception("Erreur Gmail inattendue")
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur Gmail inattendue. Consultez les logs.",
+        ) from exc
 
     return {"emails": emails}
 
@@ -62,7 +69,11 @@ async def ai_filter_sort(payload: models.FilterSortRequest):
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="Erreur IA inattendue") from exc
+        LOGGER.exception("Erreur IA inattendue")
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur IA inattendue. Consultez les logs.",
+        ) from exc
 
     return result
 
