@@ -15,7 +15,7 @@ services:
       GMAIL_CREDENTIALS_PATH: /secrets/credentials.json
       GMAIL_TOKEN_PATH: /secrets/token.json
     volumes:
-      - ./secrets:/secrets:ro
+      - ./secrets:/secrets
       - ./backend:/app
       - backend_node_modules:/app/node_modules
   frontend:
