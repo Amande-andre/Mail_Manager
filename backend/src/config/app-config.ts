@@ -17,6 +17,8 @@ export interface AppConfig {
   gmailCredentialsPath: string;
   frontendBaseUrl: string;
   sessionCookieName: string;
+  sessionDbPath: string;
+  sessionEncryptionKey: string;
   port: number;
 }
 
@@ -80,6 +82,10 @@ const port = parseNumber(process.env.PORT, 3000, 'PORT', {
 const frontendBaseUrl =
   process.env.FRONTEND_BASE_URL?.trim() || 'http://localhost:5173';
 const defaultRedirectUri = `http://localhost:${port}/api/auth/google/callback`;
+const sessionDbPath = resolvePath(
+  process.env.SESSION_DB_PATH,
+  path.join(baseDir, 'data', 'sessions.db'),
+);
 
 export const appConfig: AppConfig = {
   aiApiKey: process.env.AI_API_KEY ?? '',
@@ -117,6 +123,8 @@ export const appConfig: AppConfig = {
   ),
   frontendBaseUrl,
   sessionCookieName: process.env.SESSION_COOKIE_NAME?.trim() || 'mm_session',
+  sessionDbPath,
+  sessionEncryptionKey: process.env.SESSION_ENCRYPTION_KEY?.trim() || '',
   port,
 };
 

@@ -26,6 +26,7 @@ coverage/
 credentials.json
 token.json
 secrets/
+data/
 
 # Legacy local venv content from master
 mailManager/

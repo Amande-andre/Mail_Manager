@@ -32,6 +32,8 @@ Interface web pour configurer, filtrer et trier des emails Gmail avec un agent I
 | `GMAIL_CREDENTIALS_PATH` | Fichier credentials.json (fallback) | `/secrets/credentials.json` |
 | `FRONTEND_BASE_URL` | URL frontend pour redirection OAuth | `http://localhost:5173` |
 | `SESSION_COOKIE_NAME` | Nom du cookie de session | `mm_session` |
+| `SESSION_DB_PATH` | Chemin SQLite pour sessions | `./data/sessions.db` |
+| `SESSION_ENCRYPTION_KEY` | Clé 32 octets (base64/hex) pour chiffrer les tokens | `...` |
 
 ## Lancer en local
 
@@ -77,5 +79,5 @@ npm run test:e2e
 ## Notes
 
 - L’authentification Gmail est multi-utilisateurs avec tokens stockés en session (pas de persistance).
-- Les tokens OAuth ne sont pas versionnés ni persistés pour l’instant.
+- Les tokens OAuth sont chiffrés et persistés en SQLite (rotation automatique).
 - Le redirect URI OAuth doit pointer vers `/api/auth/google/callback`.
