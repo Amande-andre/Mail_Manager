@@ -22,6 +22,19 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Docker (local)
+
+1. Générez `token.json` localement (voir section Authentification Gmail).
+2. Créez un dossier `secrets/` et placez `credentials.json` et `token.json` dedans.
+3. Créez un fichier `.env` avec au minimum `AI_API_KEY` (et vos autres variables si besoin).
+4. Lancez :
+
+```bash
+docker compose up --build
+```
+
+Ouvrez `http://localhost:8000`.
+
 ## Authentification Gmail
 
 Générez un `token.json` localement :
@@ -49,6 +62,36 @@ uvicorn app.main:app --reload
 ```
 
 Ouvrez ensuite `http://localhost:8000`.
+
+## Hébergement pour tests (Fly.io, Docker)
+
+Solution simple et peu coûteuse avec volume persistant pour `token.json`.
+
+1. Initialisez l'app :
+   ```bash
+   fly launch --no-deploy
+   ```
+2. Créez un volume persistant :
+   ```bash
+   fly volumes create mail_data --size 1
+   ```
+3. Montez le volume sur `/data` dans `fly.toml`.
+4. Configurez les secrets :
+   ```bash
+   fly secrets set \
+     AI_API_KEY=... \
+     ALLOWED_ORIGINS=https://<app>.fly.dev \
+     GMAIL_CREDENTIALS_PATH=/data/credentials.json \
+     GMAIL_TOKEN_PATH=/data/token.json
+   ```
+5. Uploadez `credentials.json` et `token.json` dans `/data` :
+   ```bash
+   fly ssh sftp shell
+   ```
+6. Déployez :
+   ```bash
+   fly deploy
+   ```
 
 ## Notes
 

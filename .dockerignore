@@ -1,4 +1,4 @@
-# Python
+.git
 __pycache__/
 *.py[cod]
 *.pyo
@@ -8,18 +8,10 @@ __pycache__/
 .eggs/
 .venv/
 venv/
-
-# Local env files
 .env
 .env.*
-
-# Gmail auth artifacts
 credentials.json
 token.json
 secrets/
-
-# Legacy local venv content from master
 mailManager/
-
-# Logs
 *.log
