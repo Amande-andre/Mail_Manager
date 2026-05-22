@@ -5,8 +5,16 @@
   color: #1f2933;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
+}
+
+a {
+  color: #2563eb;
 }
 
 .container {
