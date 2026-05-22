@@ -158,7 +158,9 @@ export class GmailSessionStore {
       return JSON.parse(decrypted.toString('utf8')) as Credentials;
     } catch (error) {
       const details =
-        error instanceof Error ? error.message : 'Erreur inconnue';
+        error instanceof Error
+          ? `${error.name}: ${error.message}`
+          : 'Erreur inconnue';
       this.logger.warn(`Impossible de déchiffrer les tokens OAuth: ${details}`);
       throw new Error('Tokens OAuth illisibles.');
     }

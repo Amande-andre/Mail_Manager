@@ -120,7 +120,7 @@ function App() {
     [emails],
   )
 
-  const refreshAuthStatus = useCallback(async () => {
+  const fetchAndUpdateAuthStatus = useCallback(async () => {
     try {
       const response = await apiFetch('/api/auth/status')
       const data = (await response.json()) as { authenticated?: boolean }
@@ -184,9 +184,9 @@ function App() {
     if (isReportPage) {
       return
     }
-    const handler = (status: string | null) => {
+    const handleAuthStatusChange = (status: string | null) => {
       setAuthNotice(getAuthNotice(status))
-      refreshAuthStatus()
+      fetchAndUpdateAuthStatus()
     }
     const handleStorage = (event: StorageEvent) => {
       if (event.key !== 'gmail-auth' || !event.newValue) {
@@ -194,9 +194,11 @@ function App() {
       }
       try {
         const payload = JSON.parse(event.newValue) as { status?: string }
-        handler(typeof payload.status === 'string' ? payload.status : null)
+        handleAuthStatusChange(
+          typeof payload.status === 'string' ? payload.status : null,
+        )
       } catch {
-        handler(null)
+        handleAuthStatusChange(null)
       }
     }
     window.addEventListener('storage', handleStorage)
@@ -205,14 +207,16 @@ function App() {
       channel = new BroadcastChannel('gmail-auth')
       channel.onmessage = (event) => {
         const payload = event.data as { status?: string }
-        handler(typeof payload?.status === 'string' ? payload.status : null)
+        handleAuthStatusChange(
+          typeof payload?.status === 'string' ? payload.status : null,
+        )
       }
     }
     return () => {
       window.removeEventListener('storage', handleStorage)
       channel?.close()
     }
-  }, [isReportPage, refreshAuthStatus])
+  }, [isReportPage, fetchAndUpdateAuthStatus])
 
   const clearError = () => setError('')
   const showError = (message: string) => setError(message)

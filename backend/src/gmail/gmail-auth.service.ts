@@ -46,7 +46,7 @@ export class GmailAuthService {
     if (!sessionId) {
       return null;
     }
-    return this.getSession(sessionId) ? sessionId : null;
+    return this.getAndRefreshSession(sessionId) ? sessionId : null;
   }
 
   ensureSession(req: Request, res: Response): string {
@@ -70,13 +70,13 @@ export class GmailAuthService {
     if (!sessionId) {
       return false;
     }
-    const session = this.getSession(sessionId);
+    const session = this.getAndRefreshSession(sessionId);
     return Boolean(session?.tokens);
   }
 
   async getAuthUrl(sessionId: string): Promise<string> {
     const state = randomBytes(16).toString('hex');
-    const session = this.getSession(sessionId) ?? { expiresAt: 0 };
+    const session = this.getAndRefreshSession(sessionId) ?? { expiresAt: 0 };
     session.state = state;
     this.saveSession(sessionId, this.touchSession(session));
 
@@ -98,7 +98,7 @@ export class GmailAuthService {
     if (!code) {
       throw new BadRequestException('Code OAuth manquant.');
     }
-    const session = this.getSession(sessionId);
+    const session = this.getAndRefreshSession(sessionId);
     if (!session?.state || session.state !== state) {
       throw new BadRequestException('State OAuth invalide.');
     }
@@ -113,14 +113,14 @@ export class GmailAuthService {
   }
 
   async getAuthorizedClient(sessionId: string): Promise<OAuth2Client> {
-    const session = this.getSession(sessionId);
+    const session = this.getAndRefreshSession(sessionId);
     if (!session?.tokens) {
       throw new UnauthorizedException('Authentification Gmail requise.');
     }
     const auth = await this.buildOAuthClient();
     auth.setCredentials(session.tokens);
     auth.on('tokens', (tokens) => {
-      const current = this.getSession(sessionId);
+      const current = this.getAndRefreshSession(sessionId);
       if (!current) {
         return;
       }
@@ -141,7 +141,7 @@ export class GmailAuthService {
         'Token Gmail invalide. Reconnectez-vous.',
       );
     }
-    const updated = this.getSession(sessionId);
+    const updated = this.getAndRefreshSession(sessionId);
     if (updated) {
       updated.tokens = auth.credentials;
       this.saveSession(sessionId, this.touchSession(updated));
@@ -153,7 +153,7 @@ export class GmailAuthService {
     this.sessionStore.deleteSession(sessionId);
   }
 
-  private getSession(sessionId: string): GmailSessionData | null {
+  private getAndRefreshSession(sessionId: string): GmailSessionData | null {
     const session = this.sessionStore.getSession(sessionId);
     if (!session) {
       return null;
