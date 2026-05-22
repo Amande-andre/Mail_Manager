@@ -5,8 +5,6 @@ import { OAuth2Client } from 'google-auth-library';
 import { ConfigService } from '../config/config.service';
 import type { EmailItem } from '../shared/types';
 
-const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
-
 type OAuthCredentials = {
   installed?: {
     client_id?: string;
@@ -37,8 +35,8 @@ export class GmailService {
       maxResults,
     });
 
-    const messages = (response.data.messages ?? []).filter(
-      (message) => Boolean(message.id),
+    const messages = (response.data.messages ?? []).filter((message) =>
+      Boolean(message.id),
     );
     if (messages.length === 0) {
       return [];
@@ -103,7 +101,10 @@ export class GmailService {
         throw new Error('Token Gmail absent');
       }
     } catch (error) {
-      this.logger.warn('Échec de rafraîchissement du token Gmail', error as Error);
+      this.logger.warn(
+        'Échec de rafraîchissement du token Gmail',
+        error as Error,
+      );
       throw new BadRequestException(
         'Token Gmail manquant ou invalide. Générez token.json via OAuth avant de continuer.',
       );
@@ -114,7 +115,10 @@ export class GmailService {
     return auth;
   }
 
-  private async loadJsonFile<T>(filePath: string, notFoundMessage: string): Promise<T> {
+  private async loadJsonFile<T>(
+    filePath: string,
+    notFoundMessage: string,
+  ): Promise<T> {
     try {
       const raw = await fs.readFile(filePath, 'utf-8');
       return JSON.parse(raw) as T;
@@ -137,7 +141,10 @@ export class GmailService {
         JSON.stringify(auth.credentials, null, 2),
       );
     } catch (error) {
-      this.logger.warn('Impossible de sauvegarder le token Gmail', error as Error);
+      this.logger.warn(
+        'Impossible de sauvegarder le token Gmail',
+        error as Error,
+      );
     }
   }
 

@@ -19,7 +19,7 @@ export class AiService {
   ): Promise<FilterSortResult> {
     const client = this.getClient();
     const payload = { instructions, emails };
-    const messages = [
+    const messages: OpenAI.ChatCompletionMessageParam[] = [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: JSON.stringify(payload) },
     ];
@@ -45,7 +45,7 @@ export class AiService {
     let data: Record<string, unknown> = {};
     try {
       data = JSON.parse(content) as Record<string, unknown>;
-    } catch (error) {
+    } catch {
       this.logger.warn('Réponse IA non JSON: %s', content);
     }
 
@@ -54,7 +54,8 @@ export class AiService {
     const sanitizeIdList = (value: unknown, fallback: string[]): string[] => {
       if (Array.isArray(value)) {
         const cleaned = value.filter(
-          (item): item is string => typeof item === 'string' && item.trim() !== '',
+          (item): item is string =>
+            typeof item === 'string' && item.trim() !== '',
         );
         return cleaned.length > 0 ? cleaned : fallback;
       }

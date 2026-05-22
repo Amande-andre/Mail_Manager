@@ -13,4 +13,4 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   await app.listen(appConfig.port);
 }
-bootstrap();
+void bootstrap();

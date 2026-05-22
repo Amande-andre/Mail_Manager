@@ -40,7 +40,10 @@ const parseNumber = (
   return parsed;
 };
 
-const parseOrigins = (value: string | undefined, fallback: string[]): string[] => {
+const parseOrigins = (
+  value: string | undefined,
+  fallback: string[],
+): string[] => {
   const origins = (value ?? '')
     .split(',')
     .map((origin) => origin.trim())
@@ -62,10 +65,15 @@ export const appConfig: AppConfig = {
   aiApiKey: process.env.AI_API_KEY ?? '',
   aiBaseUrl: process.env.AI_BASE_URL || undefined,
   aiModel: process.env.AI_MODEL?.trim() || 'gpt-4o-mini',
-  aiTemperature: parseNumber(process.env.AI_TEMPERATURE, 0.2, 'AI_TEMPERATURE', {
-    min: 0,
-    max: 2,
-  }),
+  aiTemperature: parseNumber(
+    process.env.AI_TEMPERATURE,
+    0.2,
+    'AI_TEMPERATURE',
+    {
+      min: 0,
+      max: 2,
+    },
+  ),
   allowedOrigins: parseOrigins(process.env.ALLOWED_ORIGINS, [
     'http://localhost:5173',
   ]),
