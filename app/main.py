@@ -83,4 +83,9 @@ async def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/report")
+async def report():
+    return FileResponse(STATIC_DIR / "report.html")
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
