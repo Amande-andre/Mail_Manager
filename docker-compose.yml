@@ -12,8 +12,13 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173}
       MAX_EMAILS_DEFAULT: ${MAX_EMAILS_DEFAULT:-20}
       GMAIL_USER_ID: ${GMAIL_USER_ID:-me}
+      GMAIL_CLIENT_ID: ${GMAIL_CLIENT_ID}
+      GMAIL_CLIENT_SECRET: ${GMAIL_CLIENT_SECRET}
+      GMAIL_REDIRECT_URI: ${GMAIL_REDIRECT_URI:-http://localhost:3000/api/auth/google/callback}
+      GMAIL_SCOPES: ${GMAIL_SCOPES}
       GMAIL_CREDENTIALS_PATH: /secrets/credentials.json
-      GMAIL_TOKEN_PATH: /secrets/token.json
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-mm_session}
     volumes:
       - ./secrets:/secrets
       - ./backend:/app

@@ -10,8 +10,13 @@ export interface AppConfig {
   maxEmailsDefault: number;
   maxEmailsLimit: number;
   gmailUserId: string;
+  gmailClientId: string;
+  gmailClientSecret: string;
+  gmailRedirectUri: string;
+  gmailScopes: string[];
   gmailCredentialsPath: string;
-  gmailTokenPath: string;
+  frontendBaseUrl: string;
+  sessionCookieName: string;
   port: number;
 }
 
@@ -51,6 +56,14 @@ const parseOrigins = (
   return origins.length > 0 ? origins : fallback;
 };
 
+const parseList = (value: string | undefined, fallback: string[]): string[] => {
+  const items = (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items.length > 0 ? items : fallback;
+};
+
 const resolvePath = (value: string | undefined, fallback: string): string => {
   if (value && value.trim()) {
     return path.resolve(value.trim());
@@ -60,6 +73,13 @@ const resolvePath = (value: string | undefined, fallback: string): string => {
 
 const baseDir = process.cwd();
 const maxEmailsLimit = 100;
+const port = parseNumber(process.env.PORT, 3000, 'PORT', {
+  min: 1,
+  max: 65535,
+});
+const frontendBaseUrl =
+  process.env.FRONTEND_BASE_URL?.trim() || 'http://localhost:5173';
+const defaultRedirectUri = `http://localhost:${port}/api/auth/google/callback`;
 
 export const appConfig: AppConfig = {
   aiApiKey: process.env.AI_API_KEY ?? '',
@@ -85,22 +105,30 @@ export const appConfig: AppConfig = {
   ),
   maxEmailsLimit,
   gmailUserId: process.env.GMAIL_USER_ID?.trim() || 'me',
+  gmailClientId: process.env.GMAIL_CLIENT_ID?.trim() || '',
+  gmailClientSecret: process.env.GMAIL_CLIENT_SECRET?.trim() || '',
+  gmailRedirectUri: process.env.GMAIL_REDIRECT_URI?.trim() || '',
+  gmailScopes: parseList(process.env.GMAIL_SCOPES, [
+    'https://www.googleapis.com/auth/gmail.readonly',
+  ]),
   gmailCredentialsPath: resolvePath(
     process.env.GMAIL_CREDENTIALS_PATH,
     path.join(baseDir, 'credentials.json'),
   ),
-  gmailTokenPath: resolvePath(
-    process.env.GMAIL_TOKEN_PATH,
-    path.join(baseDir, 'token.json'),
-  ),
-  port: parseNumber(process.env.PORT, 3000, 'PORT', { min: 1, max: 65535 }),
+  frontendBaseUrl,
+  sessionCookieName: process.env.SESSION_COOKIE_NAME?.trim() || 'mm_session',
+  port,
 };
 
 export const configSummary = () => ({
   ai_model: appConfig.aiModel,
   ai_base_url: appConfig.aiBaseUrl ?? null,
   ai_key_configured: Boolean(appConfig.aiApiKey),
-  gmail_credentials_found: existsSync(appConfig.gmailCredentialsPath),
-  gmail_token_found: existsSync(appConfig.gmailTokenPath),
+  gmail_oauth_configured:
+    Boolean(appConfig.gmailClientId && appConfig.gmailClientSecret) ||
+    existsSync(appConfig.gmailCredentialsPath),
+  gmail_redirect_uri: appConfig.gmailRedirectUri || defaultRedirectUri,
   max_emails_default: appConfig.maxEmailsDefault,
+  max_emails_limit: appConfig.maxEmailsLimit,
+  frontend_base_url: appConfig.frontendBaseUrl,
 });

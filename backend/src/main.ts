@@ -9,6 +9,7 @@ async function bootstrap() {
     origin: appConfig.allowedOrigins,
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type'],
+    credentials: true,
   });
   app.setGlobalPrefix('api');
   await app.listen(appConfig.port);

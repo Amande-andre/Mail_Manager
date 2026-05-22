@@ -7,9 +7,14 @@ import {
   Logger,
   Post,
   Query,
+  Req,
+  Res,
+  UnauthorizedException,
 } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { AiService } from '../ai/ai.service';
 import { ConfigService } from '../config/config.service';
+import { GmailAuthService } from '../gmail/gmail-auth.service';
 import { GmailService } from '../gmail/gmail.service';
 import type { EmailItem, FilterSortRequest } from '../shared/types';
 
@@ -20,6 +25,7 @@ export class ApiController {
   constructor(
     private readonly configService: ConfigService,
     private readonly gmailService: GmailService,
+    private readonly gmailAuthService: GmailAuthService,
     private readonly aiService: AiService,
   ) {}
 
@@ -33,17 +39,74 @@ export class ApiController {
     return this.configService.getSummary();
   }
 
+  @Get('auth/google/start')
+  async startGoogleAuth(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const sessionId = this.gmailAuthService.ensureSession(req, res);
+    const authUrl = await this.gmailAuthService.getAuthUrl(sessionId);
+    return { auth_url: authUrl };
+  }
+
+  @Get('auth/google/callback')
+  async googleCallback(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('code') code?: string,
+    @Query('state') state?: string,
+  ) {
+    const sessionId = this.gmailAuthService.getSessionId(req);
+    const redirectBase = this.resolveFrontendRedirectBase();
+    if (!sessionId) {
+      return res.redirect(`${redirectBase}/?auth=error`);
+    }
+    try {
+      await this.gmailAuthService.handleCallback(sessionId, code ?? '', state);
+      return res.redirect(`${redirectBase}/?auth=success`);
+    } catch (error) {
+      this.logger.error('Erreur OAuth Gmail', error as Error);
+      return res.redirect(`${redirectBase}/?auth=error`);
+    }
+  }
+
+  @Get('auth/status')
+  getAuthStatus(@Req() req: Request) {
+    const sessionId = this.gmailAuthService.getSessionId(req);
+    return { authenticated: this.gmailAuthService.hasActiveSession(sessionId) };
+  }
+
+  @Post('auth/logout')
+  logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const sessionId = this.gmailAuthService.getSessionId(req);
+    if (sessionId) {
+      this.gmailAuthService.clearSession(sessionId);
+    }
+    this.gmailAuthService.clearSessionCookie(res);
+    return { status: 'ok' };
+  }
+
   @Get('emails')
   async getEmails(
+    @Req() req: Request,
     @Query('query') query?: string,
     @Query('max_results') maxResults?: string,
   ) {
     const max = this.configService.resolveMaxResults(maxResults);
     try {
-      const emails = await this.gmailService.listEmails(query, max);
+      const sessionId = this.gmailAuthService.getSessionId(req);
+      if (!sessionId) {
+        throw new UnauthorizedException('Authentification Gmail requise.');
+      }
+      const authClient =
+        await this.gmailAuthService.getAuthorizedClient(sessionId);
+      const emails = await this.gmailService.listEmails(authClient, query, max);
       return { emails };
     } catch (error) {
-      if (error instanceof BadRequestException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
         throw error;
       }
       this.logger.error('Erreur Gmail inattendue', error as Error);
@@ -75,6 +138,30 @@ export class ApiController {
       throw new BadRequestException('Instructions IA manquantes.');
     }
     return instructions.trim();
+  }
+
+  private resolveFrontendRedirectBase(): string {
+    const configured = this.configService.config.frontendBaseUrl;
+    const allowed = this.configService.config.allowedOrigins;
+    const normalizedConfigured = this.normalizeOrigin(configured);
+    const match = allowed.find(
+      (origin) => this.normalizeOrigin(origin) === normalizedConfigured,
+    );
+    if (match) {
+      return normalizedConfigured;
+    }
+    if (allowed.length > 0) {
+      return this.normalizeOrigin(allowed[0]);
+    }
+    return normalizedConfigured;
+  }
+
+  private normalizeOrigin(value: string): string {
+    try {
+      return new URL(value).origin;
+    } catch {
+      return value;
+    }
   }
 
   private normalizeEmails(emails: unknown): EmailItem[] {
