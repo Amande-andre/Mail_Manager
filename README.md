@@ -22,6 +22,18 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Docker (local)
+
+1. Place `credentials.json` and `token.json` in `./secrets/` (use `python scripts/gmail_auth.py` locally to generate the token).
+2. Set AI env vars in `.env`.
+3. Run:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:8000`.
+
 ## Authentification Gmail
 
 Générez un `token.json` localement :

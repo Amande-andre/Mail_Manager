@@ -16,6 +16,7 @@ venv/
 # Gmail auth artifacts
 credentials.json
 token.json
+secrets/
 
 # Legacy local venv content from master
 mailManager/
