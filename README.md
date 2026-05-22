@@ -1,51 +1,20 @@
 # Mail Manager
 
-Interface web pour configurer, filtrer et trier des emails avec un agent IA. Le backend FastAPI se connecte à Gmail (OAuth) et à un provider IA compatible OpenAI.
+Interface web pour configurer, filtrer et trier des emails Gmail avec un agent IA.
 
-## Fonctionnalités
+## Stack
 
-- Chargement d'emails Gmail via une requête
-- Analyse IA pour filtrer et trier
-- Interface web simple (HTML/JS) servie par FastAPI
+- **Frontend**: React + TypeScript (Vite)
+- **Backend**: NestJS + TypeScript
 
 ## Prérequis
 
-- Python 3.10+
-- Un projet Google Cloud avec l'API Gmail activée
-- Un fichier `credentials.json` (OAuth client) placé à la racine du dépôt
+- Node.js 20+
+- Un projet Google Cloud avec l’API Gmail activée
+- Un fichier `credentials.json` (OAuth client)
+- Un fichier `token.json` généré via OAuth (refresh token requis)
 
-## Installation
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Docker (local)
-
-1. Générez `token.json` localement (voir section Authentification Gmail).
-2. Créez un dossier `secrets/` et placez `credentials.json` et `token.json` dedans.
-3. Créez un fichier `.env` avec au minimum `AI_API_KEY` (et vos autres variables si besoin).
-4. Lancez :
-
-```bash
-docker compose up --build
-```
-
-Ouvrez `http://localhost:8000`.
-
-## Authentification Gmail
-
-Générez un `token.json` localement :
-
-```bash
-python scripts/gmail_auth.py
-```
-
-## Configuration IA
-
-Définissez les variables d'environnement suivantes :
+## Variables d’environnement (backend)
 
 | Variable | Description | Exemple |
 | --- | --- | --- |
@@ -53,48 +22,54 @@ Définissez les variables d'environnement suivantes :
 | `AI_BASE_URL` | Base URL (optionnelle) | `https://openrouter.ai/api/v1` |
 | `AI_MODEL` | Modèle IA | `gpt-4o-mini` |
 | `AI_TEMPERATURE` | Température | `0.2` |
-| `ALLOWED_ORIGINS` | Origines CORS autorisées | `http://localhost:8000` |
+| `ALLOWED_ORIGINS` | Origines CORS autorisées | `http://localhost:5173` |
+| `MAX_EMAILS_DEFAULT` | Nombre d’emails par défaut | `20` |
+| `GMAIL_USER_ID` | User ID Gmail | `me` |
+| `GMAIL_CREDENTIALS_PATH` | Chemin vers `credentials.json` | `/secrets/credentials.json` |
+| `GMAIL_TOKEN_PATH` | Chemin vers `token.json` | `/secrets/token.json` |
 
-## Lancer l'application
+## Lancer en local
+
+Backend :
 
 ```bash
-uvicorn app.main:app --reload
+cd backend
+npm install
+npm run start:dev
 ```
 
-Ouvrez ensuite `http://localhost:8000`.
+Frontend :
 
-## Hébergement pour tests (Fly.io, Docker)
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-Solution simple et peu coûteuse avec volume persistant pour `token.json`.
+Ouvrez ensuite `http://localhost:5173`.
 
-1. Initialisez l'app :
-   ```bash
-   fly launch --no-deploy
-   ```
-2. Créez un volume persistant :
-   ```bash
-   fly volumes create mail_data --size 1
-   ```
-3. Montez le volume sur `/data` dans `fly.toml`.
-4. Configurez les secrets :
-   ```bash
-   fly secrets set \
-     AI_API_KEY=... \
-     ALLOWED_ORIGINS=https://<app>.fly.dev \
-     GMAIL_CREDENTIALS_PATH=/data/credentials.json \
-     GMAIL_TOKEN_PATH=/data/token.json
-   ```
-5. Uploadez `credentials.json` et `token.json` dans `/data` :
-   ```bash
-   fly ssh sftp shell
-   ```
-6. Déployez :
-   ```bash
-   fly deploy
-   ```
+## Docker (local)
+
+1. Créez un dossier `secrets/` à la racine et placez `credentials.json` et `token.json` dedans.
+2. Définissez vos variables d’environnement (`AI_API_KEY`, etc.).
+3. Lancez :
+
+```bash
+docker compose up --build
+```
+
+Frontend : `http://localhost:5173`
+Backend : `http://localhost:3000`
+
+## Tests (backend)
+
+```bash
+cd backend
+npm test
+npm run test:e2e
+```
 
 ## Notes
 
 - Les fichiers `credentials.json` et `token.json` ne sont pas versionnés.
-- L'ancienne branche `master` contenait un environnement virtuel local ; il est maintenant ignoré via `.gitignore`.
-- Aucune suite de tests n'est fournie pour le moment.
+- Le backend attend un token OAuth valide (avec refresh token) pour accéder à Gmail.

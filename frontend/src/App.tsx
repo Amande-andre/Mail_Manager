@@ -1,0 +1,299 @@
+import { useEffect, useMemo, useState } from 'react'
+
+type EmailItem = {
+  id: string
+  threadId?: string | null
+  sender?: string
+  subject?: string
+  date?: string
+  snippet?: string
+}
+
+type AiResult = {
+  keep_ids: string[]
+  ordered_ids: string[]
+  summary?: string
+}
+
+type ConfigResponse = {
+  ai_model: string
+  ai_base_url: string | null
+  ai_key_configured: boolean
+  gmail_credentials_found: boolean
+  gmail_token_found: boolean
+  max_emails_default: number
+}
+
+const reportItems = [
+  'Mail Manager est une interface web pour charger et trier des emails Gmail.',
+  'Le backend NestJS expose une API JSON dédiée au traitement.',
+  'Connexion Gmail via OAuth (credentials.json + token.json).',
+  'Lecture des messages en mode read-only.',
+  'Recherche Gmail paramétrable via une requête.',
+  'Limitation configurable du nombre d’emails chargés.',
+  'Extraction des métadonnées: expéditeur, sujet, date, extrait.',
+  'Analyse IA via un provider compatible OpenAI.',
+  'Prompt système orienté filtrage et priorisation.',
+  'Retour IA attendu: keep_ids, ordered_ids, summary.',
+  'Fallback si réponse IA non conforme (sanitization).',
+  'CORS configurable via ALLOWED_ORIGINS.',
+  'Interface React pour charger les emails.',
+  'Formulaire pour saisir des instructions IA.',
+  'Affichage des emails chargés dans l’UI.',
+  'Affichage de la synthèse IA et de l’ordre recommandé.',
+  'Gestion des erreurs côté API avec messages clairs.',
+  'Configuration IA par variables d’environnement.',
+  'Support d’un base_url IA optionnel.',
+  'Exécution locale via NestJS + Vite.',
+  'Support Docker avec secrets séparés.',
+  'Aucune suite de tests front fournie.',
+  'Projet conçu pour un usage simple et direct.',
+  'Ce compte rendu reflète l’état actuel du dépôt.',
+]
+
+const normalizeBaseUrl = (value: string) => value.replace(/\/$/, '')
+const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL ?? '')
+const buildApiUrl = (path: string) => `${apiBaseUrl}${path}`
+
+const parseMaxResults = (value: string, fallback: number) => {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback
+  }
+  return Math.min(Math.floor(parsed), 100)
+}
+
+function App() {
+  const isReportPage = window.location.pathname === '/report'
+  const [configStatus, setConfigStatus] = useState('Chargement...')
+  const [query, setQuery] = useState('')
+  const [maxResults, setMaxResults] = useState('20')
+  const [instructions, setInstructions] = useState('')
+  const [emails, setEmails] = useState<EmailItem[]>([])
+  const [aiResult, setAiResult] = useState<AiResult | null>(null)
+  const [error, setError] = useState('')
+
+  const emailById = useMemo(
+    () => new Map(emails.map((email) => [email.id, email])),
+    [emails],
+  )
+
+  useEffect(() => {
+    if (isReportPage) {
+      return
+    }
+    const loadConfig = async () => {
+      try {
+        const response = await fetch(buildApiUrl('/api/config'))
+        const data = (await response.json()) as ConfigResponse
+        setConfigStatus(
+          `Modèle: ${data.ai_model} | Base URL: ${
+            data.ai_base_url || 'OpenAI par défaut'
+          } | Clé IA: ${
+            data.ai_key_configured ? 'OK' : 'Manquante'
+          } | Gmail: ${
+            data.gmail_credentials_found && data.gmail_token_found
+              ? 'OK'
+              : 'Auth requise'
+          }`,
+        )
+        if (data.max_emails_default) {
+          setMaxResults(String(data.max_emails_default))
+        }
+      } catch {
+        setConfigStatus('Impossible de charger la configuration.')
+      }
+    }
+
+    loadConfig()
+  }, [isReportPage])
+
+  const clearError = () => setError('')
+  const showError = (message: string) => setError(message)
+
+  const loadEmails = async () => {
+    clearError()
+    const max = parseMaxResults(maxResults, 20)
+
+    try {
+      const response = await fetch(
+        buildApiUrl(
+          `/api/emails?query=${encodeURIComponent(query.trim())}&max_results=${max}`,
+        ),
+      )
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { detail?: string }
+        throw new Error(errorBody.detail || 'Erreur Gmail')
+      }
+      const data = (await response.json()) as { emails?: EmailItem[] }
+      setEmails(data.emails ?? [])
+      setAiResult(null)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erreur Gmail')
+    }
+  }
+
+  const runAi = async () => {
+    clearError()
+    if (!instructions.trim()) {
+      showError('Ajoutez des instructions pour l’IA.')
+      return
+    }
+    if (emails.length === 0) {
+      showError('Chargez des emails avant de lancer l’analyse.')
+      return
+    }
+
+    try {
+      const response = await fetch(buildApiUrl('/api/ai/filter-sort'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instructions: instructions.trim(), emails }),
+      })
+      if (!response.ok) {
+        const errorBody = (await response.json()) as { detail?: string }
+        throw new Error(errorBody.detail || 'Erreur IA')
+      }
+      const result = (await response.json()) as AiResult
+      setAiResult(result)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erreur IA')
+    }
+  }
+
+  if (isReportPage) {
+    return (
+      <main className="container">
+        <header>
+          <h1>Compte rendu du projet</h1>
+          <p>Résumé en 25 lignes maximum de l’état actuel.</p>
+          <p>
+            <a href="/">Retour à l&apos;accueil</a>
+          </p>
+        </header>
+
+        <section className="card">
+          <h2>Capacités actuelles</h2>
+          <ol>
+            {reportItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <main className="container">
+      <header>
+        <h1>Gestionnaire de mails</h1>
+        <p>Configurez, filtrez et triez vos emails avec un agent IA.</p>
+        <p>
+          <a href="/report">Voir le compte rendu du projet</a>
+        </p>
+      </header>
+
+      <section className="card">
+        <h2>Configuration</h2>
+        <div className="status">{configStatus}</div>
+      </section>
+
+      <section className="card">
+        <h2>Recherche Gmail</h2>
+        <label>
+          Requête Gmail (optionnel)
+          <input
+            type="text"
+            value={query}
+            placeholder="from:newsletter"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <label>
+          Nombre maximum d&apos;emails
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={maxResults}
+            onChange={(event) => setMaxResults(event.target.value)}
+          />
+        </label>
+        <button type="button" onClick={loadEmails}>
+          Charger les emails
+        </button>
+      </section>
+
+      <section className="card">
+        <h2>Instructions IA</h2>
+        <textarea
+          rows={4}
+          value={instructions}
+          placeholder="Ex: Garde uniquement les emails urgents et trie par priorité."
+          onChange={(event) => setInstructions(event.target.value)}
+        />
+        <button type="button" onClick={runAi}>
+          Analyser avec l&apos;IA
+        </button>
+      </section>
+
+      <section className="card">
+        <h2>Emails chargés</h2>
+        {emails.length === 0 ? (
+          <div className="list">Aucun email chargé.</div>
+        ) : (
+          <div className="list">
+            {emails.map((email) => (
+              <div className="email-card" key={email.id}>
+                <div className="email-header">
+                  <strong>{email.subject || '(Sans sujet)'}</strong>
+                  <span>{email.date || ''}</span>
+                </div>
+                <div className="email-meta">
+                  {email.sender || 'Expéditeur inconnu'}
+                </div>
+                <div className="email-snippet">{email.snippet || ''}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>Résultat IA</h2>
+        <p>{aiResult?.summary || 'Aucune analyse pour le moment.'}</p>
+        <div className="grid">
+          <div>
+            <h3>Ordre recommandé</h3>
+            <ol>
+              {(aiResult?.ordered_ids ?? []).map((id) => {
+                const email = emailById.get(id)
+                const label = email
+                  ? `${email.subject || '(Sans sujet)'} — ${email.sender || ''}`
+                  : id
+                return <li key={`order-${id}`}>{label}</li>
+              })}
+            </ol>
+          </div>
+          <div>
+            <h3>Emails à garder</h3>
+            <ul>
+              {(aiResult?.keep_ids ?? []).map((id) => {
+                const email = emailById.get(id)
+                const label = email
+                  ? `${email.subject || '(Sans sujet)'} — ${email.sender || ''}`
+                  : id
+                return <li key={`keep-${id}`}>{label}</li>
+              })}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {error ? <section className="card error">{error}</section> : null}
+    </main>
+  )
+}
+
+export default App
