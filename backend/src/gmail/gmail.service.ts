@@ -1,34 +1,19 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { google, gmail_v1 } from 'googleapis';
-import { promises as fs } from 'fs';
-import { OAuth2Client } from 'google-auth-library';
+import type { OAuth2Client } from 'google-auth-library';
 import { ConfigService } from '../config/config.service';
 import type { EmailItem } from '../shared/types';
 
-type OAuthCredentials = {
-  installed?: {
-    client_id?: string;
-    client_secret?: string;
-    redirect_uris?: string[];
-  };
-  web?: {
-    client_id?: string;
-    client_secret?: string;
-    redirect_uris?: string[];
-  };
-};
-
 @Injectable()
 export class GmailService {
-  private readonly logger = new Logger(GmailService.name);
-
   constructor(private readonly configService: ConfigService) {}
 
   async listEmails(
+    auth: OAuth2Client,
     query: string | undefined,
     maxResults: number,
   ): Promise<EmailItem[]> {
-    const service = await this.getService();
+    const service = google.gmail({ version: 'v1', auth });
     const response = await service.users.messages.list({
       userId: this.configService.config.gmailUserId,
       q: query || undefined,
@@ -64,88 +49,6 @@ export class GmailService {
         snippet: detail.data.snippet ?? '',
       };
     });
-  }
-
-  private async getService(): Promise<gmail_v1.Gmail> {
-    const auth = await this.getAuthorizedClient();
-    return google.gmail({ version: 'v1', auth });
-  }
-
-  private async getAuthorizedClient(): Promise<OAuth2Client> {
-    const credentials = await this.loadJsonFile<OAuthCredentials>(
-      this.configService.config.gmailCredentialsPath,
-      'credentials.json introuvable. Placez-le à la racine du backend ou définissez GMAIL_CREDENTIALS_PATH.',
-    );
-
-    const source = credentials.installed ?? credentials.web;
-    if (!source?.client_id || !source.client_secret) {
-      throw new BadRequestException('credentials.json invalide ou incomplet.');
-    }
-
-    const auth = new google.auth.OAuth2(
-      source.client_id,
-      source.client_secret,
-      source.redirect_uris?.[0],
-    );
-
-    const token = await this.loadJsonFile<Record<string, unknown>>(
-      this.configService.config.gmailTokenPath,
-      'Token Gmail manquant ou invalide. Générez token.json via OAuth avant de continuer.',
-    );
-
-    auth.setCredentials(token);
-
-    try {
-      const accessToken = await auth.getAccessToken();
-      if (!accessToken?.token) {
-        throw new Error('Token Gmail absent');
-      }
-    } catch (error) {
-      this.logger.warn(
-        'Échec de rafraîchissement du token Gmail',
-        error as Error,
-      );
-      throw new BadRequestException(
-        'Token Gmail manquant ou invalide. Générez token.json via OAuth avant de continuer.',
-      );
-    }
-
-    await this.persistToken(auth);
-
-    return auth;
-  }
-
-  private async loadJsonFile<T>(
-    filePath: string,
-    notFoundMessage: string,
-  ): Promise<T> {
-    try {
-      const raw = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(raw) as T;
-    } catch (error) {
-      const err = error as NodeJS.ErrnoException;
-      if (err.code === 'ENOENT') {
-        throw new BadRequestException(notFoundMessage);
-      }
-      throw new BadRequestException(`Impossible de lire ${filePath}.`);
-    }
-  }
-
-  private async persistToken(auth: OAuth2Client): Promise<void> {
-    if (!auth.credentials || Object.keys(auth.credentials).length === 0) {
-      return;
-    }
-    try {
-      await fs.writeFile(
-        this.configService.config.gmailTokenPath,
-        JSON.stringify(auth.credentials, null, 2),
-      );
-    } catch (error) {
-      this.logger.warn(
-        'Impossible de sauvegarder le token Gmail',
-        error as Error,
-      );
-    }
   }
 
   private extractHeaderValue(

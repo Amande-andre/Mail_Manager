@@ -19,16 +19,19 @@ type ConfigResponse = {
   ai_model: string
   ai_base_url: string | null
   ai_key_configured: boolean
-  gmail_credentials_found: boolean
-  gmail_token_found: boolean
+  gmail_oauth_configured: boolean
+  gmail_redirect_uri: string
   max_emails_default: number
+  max_emails_limit: number
+  frontend_base_url: string
 }
 
 const reportItems = [
   'Mail Manager est une interface web pour charger et trier des emails Gmail.',
   'Le backend NestJS expose une API JSON dédiée au traitement.',
-  'Connexion Gmail via OAuth (credentials.json + token.json).',
-  'Lecture des messages en mode read-only.',
+  'Connexion Gmail via OAuth Google multi-utilisateurs.',
+  'Tokens stockés en session (pas de persistance pour le moment).',
+  'Lecture Gmail en mode read-only après authentification.',
   'Recherche Gmail paramétrable via une requête.',
   'Limitation configurable du nombre d’emails chargés.',
   'Extraction des métadonnées: expéditeur, sujet, date, extrait.',
@@ -54,20 +57,39 @@ const reportItems = [
 const normalizeBaseUrl = (value: string) => value.replace(/\/$/, '')
 const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL ?? '')
 const buildApiUrl = (path: string) => `${apiBaseUrl}${path}`
+const apiFetch = (path: string, options?: RequestInit) =>
+  fetch(buildApiUrl(path), { ...options, credentials: 'include' })
 
-const parseMaxResults = (value: string, fallback: number) => {
+const getAuthNoticeFromUrl = () => {
+  const params = new URLSearchParams(window.location.search)
+  const authParam = params.get('auth')
+  if (authParam === 'success') {
+    return 'Connexion Google réussie.'
+  }
+  if (authParam === 'error') {
+    return 'Connexion Google échouée. Réessayez.'
+  }
+  return ''
+}
+
+const parseMaxResults = (value: string, fallback: number, limit: number) => {
   const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return fallback
   }
-  return Math.min(Math.floor(parsed), 100)
+  return Math.min(Math.floor(parsed), limit)
 }
 
 function App() {
   const isReportPage = window.location.pathname === '/report'
   const [configStatus, setConfigStatus] = useState('Chargement...')
+  const [authStatus, setAuthStatus] = useState<'checking' | 'ok' | 'missing'>(
+    'checking',
+  )
+  const [authNotice, setAuthNotice] = useState(() => getAuthNoticeFromUrl())
   const [query, setQuery] = useState('')
   const [maxResults, setMaxResults] = useState('20')
+  const [maxResultsLimit, setMaxResultsLimit] = useState(100)
   const [instructions, setInstructions] = useState('')
   const [emails, setEmails] = useState<EmailItem[]>([])
   const [aiResult, setAiResult] = useState<AiResult | null>(null)
@@ -82,44 +104,91 @@ function App() {
     if (isReportPage) {
       return
     }
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('auth')) {
+      window.history.replaceState({}, '', window.location.pathname)
+    }
     const loadConfig = async () => {
       try {
-        const response = await fetch(buildApiUrl('/api/config'))
+        const response = await apiFetch('/api/config')
         const data = (await response.json()) as ConfigResponse
         setConfigStatus(
           `Modèle: ${data.ai_model} | Base URL: ${
             data.ai_base_url || 'OpenAI par défaut'
           } | Clé IA: ${
             data.ai_key_configured ? 'OK' : 'Manquante'
-          } | Gmail: ${
-            data.gmail_credentials_found && data.gmail_token_found
-              ? 'OK'
-              : 'Auth requise'
-          }`,
+          } | OAuth Gmail: ${data.gmail_oauth_configured ? 'OK' : 'Manquant'}`,
         )
         if (data.max_emails_default) {
           setMaxResults(String(data.max_emails_default))
+        }
+        if (data.max_emails_limit) {
+          setMaxResultsLimit(data.max_emails_limit)
         }
       } catch {
         setConfigStatus('Impossible de charger la configuration.')
       }
     }
+    const loadAuthStatus = async () => {
+      try {
+        const response = await apiFetch('/api/auth/status')
+        const data = (await response.json()) as { authenticated?: boolean }
+        setAuthStatus(data.authenticated ? 'ok' : 'missing')
+      } catch {
+        setAuthStatus('missing')
+      }
+    }
 
     loadConfig()
+    loadAuthStatus()
   }, [isReportPage])
 
   const clearError = () => setError('')
   const showError = (message: string) => setError(message)
 
+  const startAuth = async () => {
+    clearError()
+    setAuthNotice('')
+    try {
+      const response = await apiFetch('/api/auth/google/start')
+      if (!response.ok) {
+        throw new Error('Impossible de démarrer OAuth Google')
+      }
+      const data = (await response.json()) as { auth_url?: string }
+      if (!data.auth_url) {
+        throw new Error('URL OAuth manquante')
+      }
+      window.location.href = data.auth_url
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erreur OAuth')
+    }
+  }
+
+  const logout = async () => {
+    clearError()
+    setAuthNotice('')
+    try {
+      const response = await apiFetch('/api/auth/logout', { method: 'POST' })
+      if (!response.ok) {
+        throw new Error('Impossible de se déconnecter')
+      }
+      setAuthStatus('missing')
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erreur OAuth')
+    }
+  }
+
   const loadEmails = async () => {
     clearError()
-    const max = parseMaxResults(maxResults, 20)
+    if (authStatus !== 'ok') {
+      showError('Authentification Gmail requise.')
+      return
+    }
+    const max = parseMaxResults(maxResults, 20, maxResultsLimit)
 
     try {
-      const response = await fetch(
-        buildApiUrl(
-          `/api/emails?query=${encodeURIComponent(query.trim())}&max_results=${max}`,
-        ),
+      const response = await apiFetch(
+        `/api/emails?query=${encodeURIComponent(query.trim())}&max_results=${max}`,
       )
       if (!response.ok) {
         const errorBody = (await response.json()) as { detail?: string }
@@ -145,7 +214,7 @@ function App() {
     }
 
     try {
-      const response = await fetch(buildApiUrl('/api/ai/filter-sort'), {
+      const response = await apiFetch('/api/ai/filter-sort', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instructions: instructions.trim(), emails }),
@@ -201,6 +270,30 @@ function App() {
 
       <section className="card">
         <h2>Recherche Gmail</h2>
+        <p>
+          État OAuth:{' '}
+          {authStatus === 'checking'
+            ? 'Vérification...'
+            : authStatus === 'ok'
+              ? 'Connecté'
+              : 'Non connecté'}
+        </p>
+        <div className="button-group">
+          <button
+            type="button"
+            onClick={startAuth}
+            disabled={authStatus === 'ok'}
+          >
+            Se connecter à Google
+          </button>
+          <button
+            type="button"
+            onClick={logout}
+            disabled={authStatus !== 'ok'}
+          >
+            Se déconnecter
+          </button>
+        </div>
         <label>
           Requête Gmail (optionnel)
           <input
@@ -215,7 +308,7 @@ function App() {
           <input
             type="number"
             min={1}
-            max={100}
+            max={maxResultsLimit}
             value={maxResults}
             onChange={(event) => setMaxResults(event.target.value)}
           />
@@ -291,6 +384,7 @@ function App() {
         </div>
       </section>
 
+      {authNotice ? <section className="card">{authNotice}</section> : null}
       {error ? <section className="card error">{error}</section> : null}
     </main>
   )
