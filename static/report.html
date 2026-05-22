@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compte rendu - Mail Manager</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>Compte rendu du projet</h1>
+        <p>Résumé en 25 lignes maximum de l'état actuel.</p>
+        <p><a href="/">Retour à l'accueil</a></p>
+      </header>
+
+      <section class="card">
+        <h2>Capacités actuelles</h2>
+        <ol>
+          <li>Mail Manager est une interface web pour charger et trier des emails Gmail.</li>
+          <li>Le backend FastAPI expose une API JSON et sert l'UI statique.</li>
+          <li>Connexion Gmail via OAuth (credentials.json + token.json).</li>
+          <li>Lecture des messages en mode read-only.</li>
+          <li>Recherche Gmail paramétrable via une requête.</li>
+          <li>Limitation configurable du nombre d'emails chargés.</li>
+          <li>Extraction des métadonnées: expéditeur, sujet, date, extrait.</li>
+          <li>Analyse IA via un provider compatible OpenAI.</li>
+          <li>Prompt système orienté filtrage et priorisation.</li>
+          <li>Retour IA attendu: keep_ids, ordered_ids, summary.</li>
+          <li>Fallback si réponse IA non conforme (sanitization).</li>
+          <li>CORS configurable via ALLOWED_ORIGINS.</li>
+          <li>Page d'accueil HTML/JS pour charger les emails.</li>
+          <li>Formulaire pour saisir des instructions IA.</li>
+          <li>Affichage des emails chargés dans l'UI.</li>
+          <li>Affichage de la synthèse IA et de l'ordre recommandé.</li>
+          <li>Gestion des erreurs côté API avec messages clairs.</li>
+          <li>Configuration IA par variables d'environnement.</li>
+          <li>Support d'un base_url IA optionnel.</li>
+          <li>Exécution locale via uvicorn.</li>
+          <li>Support Docker avec secrets séparés.</li>
+          <li>Compatibilité Fly.io décrite.</li>
+          <li>Aucune suite de tests fournie.</li>
+          <li>Projet conçu pour un usage simple et direct.</li>
+          <li>Ce compte rendu reflète l'état actuel du dépôt.</li>
+        </ol>
+      </section>
+    </main>
+  </body>
+</html>
