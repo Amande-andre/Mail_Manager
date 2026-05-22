@@ -5,17 +5,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-ARG APP_UID=1000
-RUN adduser --disabled-password --gecos "" --uid "${APP_UID}" appuser
+RUN addgroup --system app && adduser --system --ingroup app app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY --chown=appuser:appuser app app
-COPY --chown=appuser:appuser static static
-COPY --chown=appuser:appuser scripts scripts
+COPY app ./app
+COPY static ./static
+COPY scripts ./scripts
 
-USER appuser
-
+USER app
 EXPOSE 8000
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

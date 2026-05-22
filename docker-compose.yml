@@ -1,15 +1,17 @@
-version: "3.9"
-
 services:
-  web:
+  mail-manager:
     build: .
     ports:
       - "8000:8000"
-    env_file:
-      - .env
     environment:
-      ALLOWED_ORIGINS: http://localhost:8000
-      GMAIL_CREDENTIALS_PATH: /data/credentials.json
-      GMAIL_TOKEN_PATH: /data/token.json
+      AI_API_KEY: ${AI_API_KEY}
+      AI_BASE_URL: ${AI_BASE_URL}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_TEMPERATURE: ${AI_TEMPERATURE:-0.2}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8000}
+      MAX_EMAILS_DEFAULT: ${MAX_EMAILS_DEFAULT:-20}
+      GMAIL_USER_ID: ${GMAIL_USER_ID:-me}
+      GMAIL_CREDENTIALS_PATH: /secrets/credentials.json
+      GMAIL_TOKEN_PATH: /secrets/token.json
     volumes:
-      - ./secrets:/data
+      - ./secrets:/secrets
