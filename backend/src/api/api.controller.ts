@@ -57,7 +57,7 @@ export class ApiController {
     @Query('state') state?: string,
   ) {
     const sessionId = this.gmailAuthService.getSessionId(req);
-    const redirectBase = this.configService.config.frontendBaseUrl;
+    const redirectBase = this.resolveFrontendRedirectBase();
     if (!sessionId) {
       return res.redirect(`${redirectBase}/?auth=error`);
     }
@@ -138,6 +138,30 @@ export class ApiController {
       throw new BadRequestException('Instructions IA manquantes.');
     }
     return instructions.trim();
+  }
+
+  private resolveFrontendRedirectBase(): string {
+    const configured = this.configService.config.frontendBaseUrl;
+    const allowed = this.configService.config.allowedOrigins;
+    const normalizedConfigured = this.normalizeOrigin(configured);
+    const match = allowed.find(
+      (origin) => this.normalizeOrigin(origin) === normalizedConfigured,
+    );
+    if (match) {
+      return normalizedConfigured;
+    }
+    if (allowed.length > 0) {
+      return this.normalizeOrigin(allowed[0]);
+    }
+    return normalizedConfigured;
+  }
+
+  private normalizeOrigin(value: string): string {
+    try {
+      return new URL(value).origin;
+    } catch {
+      return value;
+    }
   }
 
   private normalizeEmails(emails: unknown): EmailItem[] {

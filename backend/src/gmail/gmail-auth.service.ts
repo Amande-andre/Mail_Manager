@@ -27,6 +27,7 @@ type OAuthCredentialsFile = {
 type SessionData = {
   state?: string;
   tokens?: Credentials;
+  expiresAt: number;
 };
 
 @Injectable()
@@ -34,12 +35,18 @@ export class GmailAuthService {
   private readonly logger = new Logger(GmailAuthService.name);
   private readonly sessions = new Map<string, SessionData>();
   private cachedCredentials: OAuthCredentialsFile | null = null;
+  private readonly sessionTtlMs = 1000 * 60 * 60 * 12;
 
   constructor(private readonly configService: ConfigService) {}
 
   getSessionId(req: Request): string | null {
     const cookies = this.parseCookies(req.headers.cookie);
-    return cookies[this.configService.config.sessionCookieName] || null;
+    const sessionId =
+      cookies[this.configService.config.sessionCookieName] || null;
+    if (!sessionId) {
+      return null;
+    }
+    return this.getSession(sessionId) ? sessionId : null;
   }
 
   ensureSession(req: Request, res: Response): string {
@@ -48,7 +55,7 @@ export class GmailAuthService {
       return existing;
     }
     const sessionId = randomBytes(32).toString('hex');
-    this.sessions.set(sessionId, {});
+    this.sessions.set(sessionId, { expiresAt: Date.now() + this.sessionTtlMs });
     res.setHeader('Set-Cookie', this.buildCookie(sessionId));
     return sessionId;
   }
@@ -61,15 +68,15 @@ export class GmailAuthService {
     if (!sessionId) {
       return false;
     }
-    const session = this.sessions.get(sessionId);
+    const session = this.getSession(sessionId);
     return Boolean(session?.tokens);
   }
 
   async getAuthUrl(sessionId: string): Promise<string> {
     const state = randomBytes(16).toString('hex');
-    const session = this.sessions.get(sessionId) ?? {};
+    const session = this.getSession(sessionId) ?? { expiresAt: 0 };
     session.state = state;
-    this.sessions.set(sessionId, session);
+    this.sessions.set(sessionId, this.touchSession(session));
 
     const auth = await this.buildOAuthClient();
     return auth.generateAuthUrl({
@@ -89,7 +96,7 @@ export class GmailAuthService {
     if (!code) {
       throw new BadRequestException('Code OAuth manquant.');
     }
-    const session = this.sessions.get(sessionId);
+    const session = this.getSession(sessionId);
     if (!session?.state || session.state !== state) {
       throw new BadRequestException('State OAuth invalide.');
     }
@@ -100,23 +107,23 @@ export class GmailAuthService {
     }
     session.tokens = response.tokens;
     session.state = undefined;
-    this.sessions.set(sessionId, session);
+    this.sessions.set(sessionId, this.touchSession(session));
   }
 
   async getAuthorizedClient(sessionId: string): Promise<OAuth2Client> {
-    const session = this.sessions.get(sessionId);
+    const session = this.getSession(sessionId);
     if (!session?.tokens) {
       throw new UnauthorizedException('Authentification Gmail requise.');
     }
     const auth = await this.buildOAuthClient();
     auth.setCredentials(session.tokens);
     auth.on('tokens', (tokens) => {
-      const current = this.sessions.get(sessionId);
+      const current = this.getSession(sessionId);
       if (!current) {
         return;
       }
       current.tokens = { ...current.tokens, ...tokens };
-      this.sessions.set(sessionId, current);
+      this.sessions.set(sessionId, this.touchSession(current));
     });
     try {
       const accessToken = await auth.getAccessToken();
@@ -132,16 +139,33 @@ export class GmailAuthService {
         'Token Gmail invalide. Reconnectez-vous.',
       );
     }
-    const updated = this.sessions.get(sessionId);
+    const updated = this.getSession(sessionId);
     if (updated) {
       updated.tokens = auth.credentials;
-      this.sessions.set(sessionId, updated);
+      this.sessions.set(sessionId, this.touchSession(updated));
     }
     return auth;
   }
 
   clearSession(sessionId: string): void {
     this.sessions.delete(sessionId);
+  }
+
+  private getSession(sessionId: string): SessionData | null {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return null;
+    }
+    if (session.expiresAt <= Date.now()) {
+      this.sessions.delete(sessionId);
+      return null;
+    }
+    return this.touchSession(session);
+  }
+
+  private touchSession(session: SessionData): SessionData {
+    session.expiresAt = Date.now() + this.sessionTtlMs;
+    return session;
   }
 
   private parseCookies(header?: string): Record<string, string> {
@@ -153,7 +177,12 @@ export class GmailAuthService {
       if (!rawKey) {
         return acc;
       }
-      acc[rawKey] = decodeURIComponent(rest.join('='));
+      const value = rest.join('=');
+      try {
+        acc[rawKey] = decodeURIComponent(value);
+      } catch {
+        acc[rawKey] = value;
+      }
       return acc;
     }, {});
   }
