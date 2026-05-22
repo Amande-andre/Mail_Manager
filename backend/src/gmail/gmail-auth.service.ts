@@ -47,7 +47,7 @@ export class GmailAuthService {
     if (existing) {
       return existing;
     }
-    const sessionId = randomBytes(24).toString('hex');
+    const sessionId = randomBytes(32).toString('hex');
     this.sessions.set(sessionId, {});
     res.setHeader('Set-Cookie', this.buildCookie(sessionId));
     return sessionId;
@@ -170,10 +170,22 @@ export class GmailAuthService {
     if (typeof maxAge === 'number') {
       parts.push(`Max-Age=${maxAge}`);
     }
-    if (process.env.NODE_ENV === 'production') {
+    if (this.shouldUseSecureCookie()) {
       parts.push('Secure');
     }
     return parts.join('; ');
+  }
+
+  private shouldUseSecureCookie(): boolean {
+    if (process.env.NODE_ENV === 'production') {
+      return true;
+    }
+    const frontendUrl = this.configService.config.frontendBaseUrl;
+    const redirectUrl = this.configService.config.gmailRedirectUri;
+    return (
+      frontendUrl.startsWith('https://') ||
+      (redirectUrl ? redirectUrl.startsWith('https://') : false)
+    );
   }
 
   private async buildOAuthClient(): Promise<OAuth2Client> {
