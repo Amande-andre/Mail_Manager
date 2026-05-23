@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type EmailItem = {
   id: string
@@ -60,16 +60,36 @@ const buildApiUrl = (path: string) => `${apiBaseUrl}${path}`
 const apiFetch = (path: string, options?: RequestInit) =>
   fetch(buildApiUrl(path), { ...options, credentials: 'include' })
 
-const getAuthNoticeFromUrl = () => {
-  const params = new URLSearchParams(window.location.search)
-  const authParam = params.get('auth')
-  if (authParam === 'success') {
+const broadcastAuthStatus = (status: string) => {
+  if (typeof BroadcastChannel !== 'undefined') {
+    const channel = new BroadcastChannel('gmail-auth')
+    channel.postMessage({ status })
+    channel.close()
+    return
+  }
+  try {
+    localStorage.setItem(
+      'gmail-auth',
+      JSON.stringify({ status, ts: Date.now() }),
+    )
+  } catch {
+    // ignore
+  }
+}
+
+const getAuthNotice = (status: string | null) => {
+  if (status === 'success') {
     return 'Connexion Google réussie.'
   }
-  if (authParam === 'error') {
+  if (status === 'error') {
     return 'Connexion Google échouée. Réessayez.'
   }
   return ''
+}
+
+const getAuthNoticeFromUrl = () => {
+  const params = new URLSearchParams(window.location.search)
+  return getAuthNotice(params.get('auth'))
 }
 
 const parseMaxResults = (value: string, fallback: number, limit: number) => {
@@ -100,11 +120,27 @@ function App() {
     [emails],
   )
 
+  const fetchAndUpdateAuthStatus = useCallback(async () => {
+    try {
+      const response = await apiFetch('/api/auth/status')
+      const data = (await response.json()) as { authenticated?: boolean }
+      setAuthStatus(data.authenticated ? 'ok' : 'missing')
+    } catch {
+      setAuthStatus('missing')
+    }
+  }, [])
+
   useEffect(() => {
     if (isReportPage) {
       return
     }
     const params = new URLSearchParams(window.location.search)
+    const authParam = params.get('auth')
+    if (authParam && window.name === 'gmail-auth') {
+      broadcastAuthStatus(authParam)
+      window.close()
+      return
+    }
     if (params.has('auth')) {
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -129,7 +165,8 @@ function App() {
         setConfigStatus('Impossible de charger la configuration.')
       }
     }
-    const loadAuthStatus = async () => {
+
+    const fetchAuthStatus = async () => {
       try {
         const response = await apiFetch('/api/auth/status')
         const data = (await response.json()) as { authenticated?: boolean }
@@ -140,8 +177,46 @@ function App() {
     }
 
     loadConfig()
-    loadAuthStatus()
+    fetchAuthStatus()
   }, [isReportPage])
+
+  useEffect(() => {
+    if (isReportPage) {
+      return
+    }
+    const handleAuthStatusChange = (status: string | null) => {
+      setAuthNotice(getAuthNotice(status))
+      fetchAndUpdateAuthStatus()
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== 'gmail-auth' || !event.newValue) {
+        return
+      }
+      try {
+        const payload = JSON.parse(event.newValue) as { status?: string }
+        handleAuthStatusChange(
+          typeof payload.status === 'string' ? payload.status : null,
+        )
+      } catch {
+        handleAuthStatusChange(null)
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    let channel: BroadcastChannel | null = null
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel('gmail-auth')
+      channel.onmessage = (event) => {
+        const payload = event.data as { status?: string }
+        handleAuthStatusChange(
+          typeof payload?.status === 'string' ? payload.status : null,
+        )
+      }
+    }
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      channel?.close()
+    }
+  }, [isReportPage, fetchAndUpdateAuthStatus])
 
   const clearError = () => setError('')
   const showError = (message: string) => setError(message)
@@ -158,7 +233,14 @@ function App() {
       if (!data.auth_url) {
         throw new Error('URL OAuth manquante')
       }
-      window.location.href = data.auth_url
+      const popup = window.open(
+        data.auth_url,
+        'gmail-auth',
+        'width=520,height=620,noopener',
+      )
+      if (!popup) {
+        window.location.href = data.auth_url
+      }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erreur OAuth')
     }
